@@ -4,11 +4,11 @@ Thermostat for domoticz using ESP 8266 and EasyESP as hardware
 ![Domoticz example](https://raw.githubusercontent.com/sasa27/Domoticz-Heatpump-Thermostat/master/exThermostat.png)
 
 ### Features
-Several modes: Frost, Eco, Comfort, Forced (choose your temperature with thermostat) and Auto
-Mode Auto uses Calendar defined with Dummy Selector Room-auto-Cal
-Stop Heatpump if temperature over a given threshold
-Start Heatpump if temperature below a given threshold
-Uses PIR : if detection of someone (at least 3 times during 3min) and mode Eco selected -> triggers the Mode comfort for 30 minutes. Stay in Mode Confort if continuous detedtions, or go back to Mode Eco after 30 minutes.
+* Several modes: Frost, Eco, Comfort, Forced (choose your temperature with thermostat) and Auto
+* Mode Auto uses Calendar defined with Dummy Selector Room-auto-Cal
+* Stop Heatpump if temperature over a given threshold
+* Start Heatpump if temperature below a given threshold
+* Uses PIR : if detection of someone (at least 3 times during 3min) and mode Eco selected -> triggers the Mode comfort for 30 minutes. Stay in Mode Confort if continuous detedtions, or go back to Mode Eco after 30 minutes.
 
 ### Prerequisites
 ```
