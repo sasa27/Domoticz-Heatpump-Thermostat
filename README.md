@@ -15,7 +15,7 @@ Thermostat for domoticz using ESP 8266 and EasyESP as hardware
 ESP8266 with ÈSP Easy installed (https://www.letscontrolit.com/)
 ESP Easy  can have the following devices used by the thermostat : PIR, DHT22 (temperature and humidity), IR (with HeatPumpIR plugin)
 ```
-![Hardware](https://raw.githubusercontent.com/sasa27/Domoticz-Heatpump-Thermostat/master/hardware.png)
+![Hardware](https://raw.githubusercontent.com/sasa27/Domoticz-Heatpump-Thermostat/master/hardware.jpg)
 
 ### Installing
 ```
