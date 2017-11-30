@@ -6,16 +6,24 @@ local debugging = false --pour voir les logs dans la console log Dz ou false pou
 local fixedTemp = 'thermostat'  --domoticz button thermostat, used with force mode
 local mode ='selector' --domoticz button mode choosen 
 local automode='Room-Auto-Cal' -- selector button with planning allowing to manage the auto mode
+
+-- holidays
+local holidaybool=true -- checks if today is a holyday
+local automodeH='Room-Auto-Cal-Holidays' -- special Selector for planning management, for holidays (and school holidays), leave blanck if no required
+local holivar='holiday' -- domoticz var affected to decimal 1-> true 0-> false no holiday today
+
 --user present 
 local presentbool=false --special mode if someone is inside and if eco ->change to confort
 local presence = '' --Pir check if someone is inside if eco change to confort
 local presencefirst='presencefirstRoom' --for starting to count the PIr occurences
 local presencecount='presencecountRoom' -- count the pir occurences during 3 minutes
 local prestime=30 --time during which user is present after detecttion in minutes
+
 --heatpump
 local HeatpumpMode='ACModeRoom' -- dummy selector for changing HT mode
 local heatpumpT='ACTempRoom' -- dummy thermostat for setting/ storing its assigned temperature
 local HeatPumpTidx='1900'
+
 --temperatures w.r.t. modes
 local fixedtemp = {
     Eco = 16.0;
@@ -26,6 +34,7 @@ local fixedtemp = {
 }
 local hysteresis = 0.5 -- theshold value
 local triggerHeat=0.5 -- threshold value for starting/stopping heat pump
+
 --sensors
 local tsensor='TempHum int'; --for one sensor onlyæ
 local tmode=2; -- 1 = 1 temperature sensor; 2= humidity/temperature combined sensor
@@ -54,7 +63,7 @@ function timedifference(s)
    return di
 end
 
---change heat pump state, state=on;off;minus,plus, t=temperature; d=delta 
+--change heat pump state, state=on;off;minus,plus, t=temperature; 
 function heatpump(state,t)
     local modes = {
         Off=0;
@@ -63,13 +72,14 @@ function heatpump(state,t)
         Cool=30;
         Dry=40;
         Fan=50;
+        Turbo=60;
         };
-    if CurrentHPMode ~=state then 
+if CurrentHPMode ~=state then 
     commandArray[HeatpumpMode]='Set Level '..modes[state];
     CurrentHPMode=state
     see_logs('Thermostat: HeatPump changing state: '..state);
-
 end
+
 if (CurrentHPT  ~= t) then
     --commandArray['UpdateDevice']=HeatPumpTidx..'|0|'..t;
     commandArray['OpenURL'] = 'http://127.0.0.1:8080/json.htm?type=command&param=udevice&idx='.. HeatPumpTidx .. '&nvalue=0&svalue=' .. tostring(t)
@@ -90,7 +100,6 @@ if(uservariables[presencefirst] == nil) then
 end
 if(uservariables[presencecount] == nil) then
     noBlankDomoticz_Devicename = string.gsub(presencecount, " ", "+")
-    --os.execute('curl http://127.0.0.1:8080/json.htm?type=command&param=saveuservariable&vname='..noBlankDomoticz_Devicename..'&vtype=0&vvalue=0');
     commandArray['OpenURL'] = 'http://localhost:8080/json.htm?type=command&param=saveuservariable&vname='..noBlankDomoticz_Devicename..'&vtype=0&vvalue=0';
      see_logs('add variable '.. presencecount);
 end
@@ -118,15 +127,29 @@ end
 see_logs('Thermostat: Current mode:'..otherdevices[mode]);
 see_logs('Thermostat: Current temperature:'..Temp);
 local expectedTemp;--get expected temp
-
+local diff_change; --time delay from last change
 if otherdevices[mode]=='Forced' then
         expectedTemp = tonumber(string.sub(otherdevices_svalues[fixedTemp],1,5));
     elseif otherdevices[mode]=='Auto' then
+        --check for holidays
+        if (holidaybool==true and uservariables[holivar]==1) then
+            expectedTemp= fixedtemp[otherdevices[automodeH]];
+            --diff_change=timedifference(otherdevices_lastupdate[automodeH]); 
+            see_logs('Thermostat: in auto, current mode:'..otherdevices[automodeH]);
+        else    
         expectedTemp= fixedtemp[otherdevices[automode]];
+        --diff_change=timedifference(otherdevices_lastupdate[automode]);
         see_logs('Thermostat: in auto, current mode:'..otherdevices[automode]);
+        end
+        
         else
         expectedTemp= fixedtemp[otherdevices[mode]];
+        --diff_change=timedifference(otherdevices_lastupdate[automode]);
     end
+diff_change=timedifference(otherdevices_lastupdate[HeatpumpMode]);
+see_logs('Time delay since last change: '..diff_change);
+see_logs('Thermostat: expected temperature:'.. tostring(expectedTemp));
+see_logs('Thermostat: HeatPump temperature:'.. tostring(CurrentHPT));
 --Pir
 if (devicechanged[presence]=='On') then
         difference = timedifference(uservariables_lastupdate[presencefirst]);
@@ -139,7 +162,6 @@ if (devicechanged[presence]=='On') then
           commandArray['Variable:' .. presencecount] = "1";
           commandArray['Variable:' .. presencefirst] = "up";
           see_logs("Thermostat Pir: 1");
-          
 end
 end
 --presence
@@ -154,17 +176,13 @@ see_logs(time.hour)
        -- commandArray['SendNotification']= 'Error:#Thermostat pir min'..(difference/60)..' '.. uservariables[presencecount];
     end
     end
-see_logs('Thermostat: expected temperature:'.. tostring(expectedTemp));
-
---if  (devicechanged== nill or devicechanged[mode]==nill)  then
---no change in commands    
-
+--normal start HP 
 if otherdevices[mode]~='Off' and CurrentHPMode=='Off' and (Temp <= expectedTemp - hysteresis) then
         see_logs("Thermostat: Heatpump start");
         heatpump('Heat',expectedTemp);
         return commandArray;
 end
--- to be checked if real temp > expected -> shutdown ->not working if planing ?
+-- if real temp > expected + triggerHeat-> shutdown HP
 if (Temp >= expectedTemp + triggerHeat) then
     if CurrentHPMode=='Heat' then
         see_logs("Thermostat:  temp difference important, Heatpump shutdown");
@@ -172,16 +190,16 @@ if (Temp >= expectedTemp + triggerHeat) then
         return commandArray;
     end
 end    
--- to be checked if real temp < expected -> open ->not working if planing ?
-if (Temp <= expectedTemp - hysteresis) then
+-- if real temp < expected and HP is shutdown-> start HP 
+if (Temp <= expectedTemp - triggerHeat) then
     if CurrentHPMode=='Off' then
         see_logs("Thermostat: temp difference less important, Heatpump start");
         heatpump('Heat',expectedTemp);
         return commandArray;
     end
-end    
+end  
+--reduce temp heat pump
 if CurrentHPMode == 'Heat' and (CurrentHPT > expectedTemp+hysteresis) then 
-    --reduce temp heat pump
         see_logs("Thermostat: reduce temp Heat pump");
         heatpump('Heat',expectedTemp);
         return commandArray;
@@ -192,6 +210,17 @@ if CurrentHPMode == 'Heat' and (CurrentHPT  < expectedTemp-hysteresis)  then
         heatpump('Heat',expectedTemp);
         return commandArray;
         end
-
-
+--turbo mode
+if (CurrentHPMode == 'Heat') and (diff_change > 3600) and (diff_change <= 5400) and (Temp  < expectedTemp-hysteresis) then 
+    --temp not yet reached -> turbo mode ?
+    see_logs("Thermostat: Turbo, increase temp Heat pump to "..expectedTemp+1);
+    heatpump('Turbo',expectedTemp+1);
+    return commandArray;
+end
+--turbo mode for 30 min -> stop
+if (CurrentHPMode == 'Turbo') and  (diff_change > 1800) and (diff_change <= 3600) then 
+    see_logs("Thermostat: Turbo, reduce temp Heat pump to "..expectedTemp);
+    heatpump('Heat',expectedTemp);
+    return commandArray;
+end
 return commandArray;
