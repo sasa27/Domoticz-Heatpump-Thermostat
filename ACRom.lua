@@ -1,8 +1,8 @@
---command heatpump esp-easy with plugin 115
+--command heatpump espeasy plugin 115
 --var to change
 local debugging = false
-local adr = {'192.168.1.52','192.168.1.53'}
-local model='toshiba'
+local adr = {'192.168.1.2','192.168.1.3'} --IP addresses of the ESPeasy modules
+local model='toshiba'  -- model of Heatpump
 local Tempmin=17 -- temp min accepted by model
 local Tempmax=25 -- temp max accepted by model
 local Calibre=0; -- calibration of the heatpump
@@ -14,7 +14,7 @@ local noheatpump=false -- true simulation, false sends commands
 local HeatTemp='HeatTemp' -- user variable name for saving the state of the heat pump 
 
 
--- url format sent to esp-easy
+-- url format sent to esp
 --http://192.168.1.7/control?cmd=heatpumpir,toshiba,0,0,0,19,0,0
 --http://192.168.1.7/control?cmd=heatpumpir,toshiba,1,2,0,19,0,0
 -- * The parameters are (in this order)
@@ -106,7 +106,7 @@ for key, value in pairs(devicechanged) do
         powerModeCmd = 0 
     elseif (mode == 'Auto')  then 
         heatModeCmd = 1
-    elseif (mode == 'Heat')  then 
+    elseif (mode == 'Heat' or mode == 'Turbo')  then 
         heatModeCmd = 2
     elseif (mode == 'Cool')  then 
         heatModeCmd = 3
